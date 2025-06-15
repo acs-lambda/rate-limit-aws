@@ -18,7 +18,7 @@ TTL_S = int(os.environ.get('TTL_S'))  # Default 1 hour TTL if not specified
 
 # Initialize DynamoDB client
 dynamodb = boto3.resource('dynamodb')
-table = dynamodb.Table(DYNAMODB_TABLE)
+table = dynamodb.Table("RL_AWS")
 
 class RateLimitExceeded(Exception):
     """Custom exception for rate limit exceeded"""

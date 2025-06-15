@@ -68,7 +68,7 @@ def update_rate_limit_info(client_id: str) -> None:
             try:
                 table.put_item(
                     Item={
-                        'id': client_id,
+                        'associated_account': client_id,
                         'invocations': 1,
                         'ttl': ttl_timestamp,
                     }

@@ -35,7 +35,7 @@ def get_rate_limit_info(client_id: str) -> Dict[str, Any]:
         Dict containing rate limit information
     """
     try:
-        response = table.get_item(Key={'id': client_id})
+        response = table.get_item(Key={'associated_account': client_id})
         return response.get('Item', {})
     except ClientError as e:
         logger.error(f"Error retrieving rate limit info: {str(e)}")

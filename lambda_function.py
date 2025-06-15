@@ -58,24 +58,30 @@ def update_rate_limit_info(client_id: str) -> None:
         try:
             table.update_item(
                 Key={'associated_account': client_id},
-                UpdateExpression='SET invocations = invocations + :inc',
+                UpdateExpression='SET invocations = if_not_exists(invocations, :zero) + :inc',
                 ExpressionAttributeValues={
                     ':inc': 1,
-                },
-                ConditionExpression='attribute_exists(id)'  # Only update if record exists
+                    ':zero': 1
+                }
             )
         except Exception as e:
+            # If record doesn't exist, create new one with TTL
+            logger.info(f"Creating new rate limit record for {client_id}")
             try:
                 table.put_item(
                     Item={
                         'associated_account': client_id,
                         'invocations': 1,
-                        'ttl': ttl_timestamp,
+                        'ttl': ttl_timestamp
                     }
                 )
             except Exception as e:
-                logger.error(f"Error updating rate limit info: {str(e)}")
+                logger.error(f"Error creating rate limit record: {str(e)}")
                 raise
+        except Exception as e:
+            logger.error(f"Error updating rate limit record: {str(e)}")
+            raise
+            
     except Exception as e:
         logger.error(f"Error updating rate limit info: {str(e)}")
         raise

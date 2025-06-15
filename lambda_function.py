@@ -19,6 +19,7 @@ TTL_S = int(os.environ.get('TTL_S'))  # Default 1 hour TTL if not specified
 # Initialize DynamoDB client
 dynamodb = boto3.resource('dynamodb')
 table = dynamodb.Table("RL_AWS")
+user_table = dynamodb.Table("Users")
 
 class RateLimitExceeded(Exception):
     """Custom exception for rate limit exceeded"""
@@ -35,7 +36,7 @@ def get_rate_limit_info(client_id: str) -> Dict[str, Any]:
         Dict containing rate limit information
     """
     try:
-        response = table.get_item(Key={'associated_account': client_id})
+        response = user_table.get_item(Key={'id': client_id})
         return response.get('Item', {})
     except ClientError as e:
         logger.error(f"Error retrieving rate limit info: {str(e)}")

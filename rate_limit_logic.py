@@ -1,6 +1,7 @@
 import time
 import boto3
 import os
+from decimal import Decimal
 from botocore.exceptions import ClientError
 from config import logger
 from utils import LambdaError, authorize
@@ -30,7 +31,7 @@ def check_and_update_rate_limit(client_id):
         # Get current invocations
         response = table.get_item(Key={'associated_account': client_id})
         item = response.get('Item', {})
-        current_invocations = item.get('invocations', 0)
+        current_invocations = int(item.get('invocations', 0))  # Convert Decimal to int
 
         if current_invocations >= user_rate_limit:
             raise LambdaError(429, "Rate limit exceeded.")
@@ -46,7 +47,11 @@ def check_and_update_rate_limit(client_id):
                 ':expires_at': ttl_timestamp
             }
         )
-        return {"message": "Rate limit check passed.", "current": current_invocations + 1, "limit": user_rate_limit}
+        return {
+            "message": "Rate limit check passed.", 
+            "current": int(current_invocations + 1),  # Convert to int
+            "limit": int(user_rate_limit)  # Convert to int
+        }
 
     except ClientError as e:
         logger.error(f"DynamoDB error during rate limit check for {client_id}: {e}")

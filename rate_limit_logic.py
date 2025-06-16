@@ -39,7 +39,7 @@ def check_and_update_rate_limit(client_id):
         ttl_timestamp = int(time.time()) + TTL_S
         table.update_item(
             Key={'associated_account': client_id},
-            UpdateExpression="SET invocations = if_not_exists(invocations, :start) + :inc",
+            UpdateExpression="SET invocations = if_not_exists(invocations, :start) + :inc, ttl = if_not_exists(ttl, :ttl)",
             ExpressionAttributeValues={
                 ':inc': 1,
                 ':start': 0,

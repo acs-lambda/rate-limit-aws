@@ -19,7 +19,7 @@ def get_user_rate_limit(client_id):
         item = response.get('Item')
         if not item or 'rl_aws' not in item:
             raise LambdaError(500, f"User {client_id} has no AWS rate limit set.")
-        return item['rl_aws']
+        return int(item['rl_aws'])  # Convert to int immediately
     except ClientError as e:
         logger.error(f"Error retrieving user rate limit for {client_id}: {e}")
         raise LambdaError(500, "Database error while fetching user rate limit.")
@@ -28,29 +28,53 @@ def check_and_update_rate_limit(client_id):
     user_rate_limit = get_user_rate_limit(client_id)
     
     try:
-        # Get current invocations
+        current_time = int(time.time())
+        
+        # Get current record
         response = table.get_item(Key={'associated_account': client_id})
         item = response.get('Item', {})
         current_invocations = int(item.get('invocations', 0))  # Convert Decimal to int
+        created_at = int(item.get('created_at', current_time))  # Convert Decimal to int
+
+        # Check if TTL has expired
+        time_diff = current_time - created_at
+        if time_diff >= TTL_S:
+            # Reset invocations if TTL has expired
+            logger.info(f"TTL expired for {client_id}, resetting invocations")
+            table.update_item(
+                Key={'associated_account': client_id},
+                UpdateExpression="SET invocations = :start, created_at = :now",
+                ExpressionAttributeValues={
+                    ':start': 1,
+                    ':now': current_time
+                }
+            )
+            return {
+                "message": "Rate limit check passed (TTL reset).", 
+                "current": 1,
+                "limit": user_rate_limit
+            }
+
+        logger.info(f"Current invocations: {current_invocations}")
+        logger.info(f"User rate limit: {user_rate_limit}")
 
         if current_invocations >= user_rate_limit:
             raise LambdaError(429, "Rate limit exceeded.")
 
-        # Update or create record
-        ttl_timestamp = int(time.time()) + TTL_S
+        # Update invocations if within TTL
         table.update_item(
             Key={'associated_account': client_id},
-            UpdateExpression="SET invocations = if_not_exists(invocations, :start) + :inc, expires_at = if_not_exists(expires_at, :expires_at)",
+            UpdateExpression="SET invocations = if_not_exists(invocations, :start) + :inc, created_at = if_not_exists(created_at, :now)",
             ExpressionAttributeValues={
                 ':inc': 1,
                 ':start': 0,
-                ':expires_at': ttl_timestamp
+                ':now': current_time
             }
         )
         return {
             "message": "Rate limit check passed.", 
-            "current": int(current_invocations + 1),  # Convert to int
-            "limit": int(user_rate_limit)  # Convert to int
+            "current": current_invocations + 1,
+            "limit": user_rate_limit
         }
 
     except ClientError as e:

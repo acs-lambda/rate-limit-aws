@@ -6,8 +6,12 @@ def lambda_handler(event, context):
     try:
         parsed_event = parse_event(event)
         
-        client_id = parsed_event.get('client_id')
-        session_id = parsed_event.get('session')
+        client_id = parsed_event.get('client_id') or parsed_event.get('account_id') or parsed_event.get('account') or parsed_event.get('client_id')
+        session_id = parsed_event.get('session_id') or parsed_event.get('session')
+        
+        # Safely handle cookies
+        if not session_id and parsed_event.get('cookies'):
+            session_id = parsed_event['cookies'].get('session_id')
         
         if not client_id or not session_id:
             raise LambdaError(400, "Missing required fields: client_id and session are required.")
